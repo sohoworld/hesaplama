@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FIRAT KARAGÜLLE</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f8f9fa;
+      display: flex;
+      justify-content: center;
+      padding: 40px;
+    }
+    .container {
+      background-color: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      padding: 30px;
+      width: 100%;
+      max-width: 400px;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #333;
+    }
+    label {
+      display: block;
+      margin-bottom: 6px;
+      color: #555;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 15px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    #result {
+      margin-top: 20px;
+      text-align: center;
+      font-size: 18px;
+      font-weight: bold;
+      color: #28a745;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Satış Fiyatı</h2>
+    <form id="calculator">
+      <label>Maliyet (USD):</label>
+      <input type="number" id="cost_usd" step="0.01">
+
+      <label>Maliyet (TL):</label>
+      <input type="number" id="cost_tl" step="0.01">
+
+      <label>Döviz Kur (USD -> TL):</label>
+      <input type="number" id="exchange_rate" step="0.01" value="39">
+
+      <label>Kargo Ücreti (TL):</label>
+      <input type="number" id="shipping_cost" step="0.01" value="85.2">
+
+      <label>Komisyon Oranı (%):</label>
+      <input type="number" id="commission_rate" step="0.01" value="21.5">
+
+      <label>KDV (%):</label>
+      <input type="number" id="tax_rate" step="0.01" value="0">
+
+      <label>Kar Marjı (%):</label>
+      <input type="number" id="profit_margin" step="0.01" value="30">
+
+      <button type="button" onclick="calculatePrice()">Hesapla</button>
+    </form>
+
+    <div id="result"></div>
+    <div id="net_income" style="margin-top: 10px; text-align: center; font-size: 16px; font-weight: bold; color: #dc3545;"></div>
+
+  </div>
+
+  <script>
+    function calculatePrice() {
+      let costUsd = parseFloat(document.getElementById('cost_usd').value) || 0;
+      let costTl = parseFloat(document.getElementById('cost_tl').value) || 0;
+      let exchangeRate = parseFloat(document.getElementById('exchange_rate').value) || 0;
+      let shippingCost = parseFloat(document.getElementById('shipping_cost').value) || 0;
+      let commissionRate = parseFloat(document.getElementById('commission_rate').value) / 100;
+      let taxRate = parseFloat(document.getElementById('tax_rate').value) / 100;
+      let profitMargin = parseFloat(document.getElementById('profit_margin').value) / 100;
+    
+      // Maliyet hesaplama
+      let baseCost = costUsd > 0 ? costUsd * exchangeRate : costTl;
+    
+      // Hedef net gelir (kar dahil)
+      let targetNet = baseCost * (1 + profitMargin);
+    
+      // KDV içten hesaplanacak
+      let taxInternalRate = taxRate / (1 + taxRate);
+    
+      // Brüt satış fiyatı hesaplama (kargo, komisyon, KDV dahil)
+      let finalPrice = (targetNet + shippingCost) / (1 - commissionRate - taxInternalRate);
+    
+      // Gerçek kesintiler
+      let commissionAmount = finalPrice * commissionRate;
+      let taxAmount = finalPrice * taxInternalRate;
+      let netIncome = finalPrice - commissionAmount - taxAmount - shippingCost;
+    
+      document.getElementById('result').innerText = `💰 Önerilen Satış Fiyatı: ${finalPrice.toFixed(2)} TL`;
+      document.getElementById('net_income').innerText = `🧾 Elinize Geçecek Tutar (KDV, Komisyon ve Kargo Düşüldü): ${netIncome.toFixed(2)} TL`;
+    }
+  </script>
+</body>
+</html>
