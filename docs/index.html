@@ -99,28 +99,42 @@
       let exchangeRate = parseFloat(document.getElementById('exchange_rate').value) || 0;
       let shippingCost = parseFloat(document.getElementById('shipping_cost').value) || 0;
       let commissionRate = parseFloat(document.getElementById('commission_rate').value) / 100;
-      let taxRate = parseFloat(document.getElementById('tax_rate').value) / 100;
+      
+      // KDV: boşsa %10 olarak al
+      let rawTaxRate = document.getElementById('tax_rate').value;
+      let taxRate = rawTaxRate !== "" ? parseFloat(rawTaxRate) / 100 : 0.10;
+
       let profitMargin = parseFloat(document.getElementById('profit_margin').value) / 100;
-    
+      let stopajRate = 0.01;
+
       // Maliyet hesaplama
       let baseCost = costUsd > 0 ? costUsd * exchangeRate : costTl;
-    
+
       // Hedef net gelir (kar dahil)
       let targetNet = baseCost * (1 + profitMargin);
-    
-      // KDV içten hesaplanacak
+
+      // KDV iç oran
       let taxInternalRate = taxRate / (1 + taxRate);
-    
-      // Brüt satış fiyatı hesaplama (kargo, komisyon, KDV dahil)
-      let finalPrice = (targetNet + shippingCost) / (1 - commissionRate - taxInternalRate);
-    
-      // Gerçek kesintiler
+
+      // Tüm kesintilerle birlikte satış fiyatı
+      let finalPrice = (targetNet + shippingCost) / (1 - commissionRate - taxInternalRate - (stopajRate / (1 + taxRate)));
+
+      // Komisyon ve KDV hesaplaması
       let commissionAmount = finalPrice * commissionRate;
       let taxAmount = finalPrice * taxInternalRate;
-      let netIncome = finalPrice - commissionAmount - taxAmount - shippingCost;
-    
+
+      // KDV hariç fiyat
+      let priceExcludingTax = finalPrice / (1 + taxRate);
+
+      // Doğru stopaj
+      let stopajAmount = priceExcludingTax * stopajRate;
+
+      // Net gelir
+      let netIncome = finalPrice - commissionAmount - taxAmount - stopajAmount - shippingCost;
+
+      // Ekrana yaz
       document.getElementById('result').innerText = `💰 Önerilen Satış Fiyatı: ${finalPrice.toFixed(2)} TL`;
-      document.getElementById('net_income').innerText = `🧾 Elinize Geçecek Tutar (KDV, Komisyon ve Kargo Düşüldü): ${netIncome.toFixed(2)} TL`;
+      document.getElementById('net_income').innerText = `🧾 Elinize Geçecek Tutar (KDV, Komisyon, Kargo ve Stopaj Düşüldü): ${netIncome.toFixed(2)} TL`;
     }
   </script>
 </body>
