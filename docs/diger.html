@@ -1,159 +1,387 @@
-
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8">
-  <title>FIRAT KARAGÜLLE</title>
+  <meta charset="UTF-8" />
+  <title>Toplu Satış Fiyatı Hesaplama | FIRAT KARAGÜLLE</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- SheetJS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
-    body {
-      font-family: Arial;
-      background: #f2f2f2;
-      padding: 30px;
+    :root{
+      --bg:#f4f6f8;
+      --card:#ffffff;
+      --text:#1f2937;
+      --muted:#6b7280;
+      --primary:#0d6efd;
+      --primary-hover:#0b5ed7;
+      --border:#e5e7eb;
+      --success:#16a34a;
+      --danger:#dc2626;
+      --table-head:#0d6efd;
+      --table-head-text:#fff;
+      --shadow:0 10px 30px rgba(0,0,0,.06);
+      --radius:14px;
     }
-    .container {
-      max-width: 900px;
-      margin: auto;
-      background: white;
-      padding: 30px;
-      border-radius: 10px;
-      box-shadow: 0 0 10px #ccc;
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background:var(--bg); color:var(--text);
     }
-    h2 {
-      text-align: center;
-      color: #333;
+    .wrap{max-width:1200px; margin:auto; padding:24px;}
+    .title{
+      display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px;
     }
-    button {
-      padding: 10px 20px;
-      margin: 10px 5px 10px 0;
-      background-color: #007bff;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 16px;
+    .title h1{font-size:22px; margin:0; letter-spacing:.2px}
+    .badge{
+      font-size:12px; color:#fff; background:var(--primary);
+      padding:6px 10px; border-radius:999px;
     }
-    input[type="file"] {
-      margin-top: 10px;
+
+    .card{
+      background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+      box-shadow:var(--shadow);
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 20px;
+    .toolbar{
+      display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:14px; border-bottom:1px solid var(--border);
     }
-    th, td {
-      border: 1px solid #ddd;
-      padding: 8px;
-      text-align: center;
+    .toolbar .spacer{flex:1}
+    .btn{
+      display:inline-flex; align-items:center; gap:8px; cursor:pointer;
+      border:none; padding:10px 14px; border-radius:10px; font-weight:600;
+      background:var(--primary); color:#fff; transition:all .15s ease;
     }
-    th {
-      background-color: #007bff;
-      color: white;
+    .btn:hover{background:var(--primary-hover); transform:translateY(-1px)}
+    .btn.secondary{background:#111827; }
+    .btn.secondary:hover{background:#0b1220}
+    .btn.ghost{
+      background:#eef2ff; color:#1e3a8a;
+    }
+    .btn.ghost:hover{background:#e0e7ff}
+
+    .file{
+      display:flex; align-items:center; gap:10px; padding:0 14px 14px 14px;
+    }
+    .file input[type="file"]{
+      padding:10px; border:1px dashed var(--border); border-radius:10px; background:#fafafa;
+    }
+    .file .filename{font-size:12px; color:var(--muted)}
+
+    .status{ margin:10px 14px 0; font-size:13px; color:var(--muted); }
+
+    .table-wrap{
+      margin-top:14px; border-top:1px solid var(--border);
+      overflow:auto; border-bottom-left-radius:var(--radius); border-bottom-right-radius:var(--radius);
+    }
+
+    table{width:100%; border-collapse:separate; border-spacing:0; min-width:900px;}
+    thead th{
+      position:sticky; top:0; z-index:1;
+      background:var(--table-head); color:var(--table-head-text);
+      font-weight:700; text-align:center; padding:12px 10px; font-size:13px;
+    }
+    tbody td{padding:10px; text-align:center; border-bottom:1px solid var(--border); font-size:13px;}
+    tbody tr:nth-child(odd){background:#fafafa}
+    tbody tr:hover{background:#f1f5f9}
+
+    input.manualPrice {
+      width: 120px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; text-align: right;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h2>Toplu Satış Fiyatı Hesaplama Aracı</h2>
+  <div class="wrap">
+    <div class="title">
+      <h1>Toplu Satış Fiyatı Hesaplama</h1>
+      <span class="badge">FIRAT KARAGÜLLE</span>
+    </div>
 
-    <button onclick="downloadTemplate()">📥 Şablonu İndir</button>
-    <input type="file" id="excelFile" accept=".xlsx">
-    <button onclick="handleFile()">Hesapla</button>
-    <button onclick="exportResults()">📤 Sonuçları Excel Olarak İndir</button>
+    <div class="card">
+      <div class="toolbar">
+        <button class="btn ghost" id="downloadTemplateBtn">📥 Şablonu İndir</button>
+        <div class="spacer"></div>
+        <button class="btn" id="calcBtn">Hesapla</button>
+        <button class="btn secondary" id="exportBtn">📤 Sonuçları İndir</button>
+      </div>
 
-    <table id="resultsTable">
-      <thead>
-        <tr>
-          <th>#</th><th>Barkod</th><th>USD</th><th>TL</th><th>Kur</th><th>Kargo</th><th>Komisyon</th><th>KDV</th><th>Kar</th><th>Fiyat (TL)</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+      <div class="file">
+        <input type="file" id="excelFile" accept=".xlsx" />
+        <div class="filename" id="fileName">Henüz dosya seçilmedi</div>
+      </div>
+
+      <div class="status" id="status"></div>
+
+      <div class="table-wrap">
+        <table id="resultsTable" aria-label="Hesaplama Sonuçları">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Barkod</th>
+              <th>USD</th>
+              <th>TL</th>
+              <th>Kur</th>
+              <th>Kargo</th>
+              <th>Komisyon (%)</th>
+              <th>KDV (%)</th>
+              <th>Kar (%)</th>
+              <th>Dip Fiyat (TL)</th>
+              <th>Net Gelir (TL)</th>
+              <th>Komisyon Tutarı</th>
+              <th>KDV Tutarı</th>
+              <th>KDV Hariç Fiyat</th>
+              <th>Stopaj Tutarı</th>
+              <th>Satış Fiyatı</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <script>
-    const base64Excel = "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";
-    let exportData = [];
+    // ---------- Utils ----------
+    const fmtTL = (n)=> new Intl.NumberFormat('tr-TR',{minimumFractionDigits:2, maximumFractionDigits:2}).format(Number(n||0));
+    const fmtPct =(n)=> new Intl.NumberFormat('tr-TR',{minimumFractionDigits:0, maximumFractionDigits:2}).format(Number(n||0));
+    const toNumber = (v) => {
+      if (v === null || v === undefined) return 0;
+      if (typeof v === "string" && v.trim() === "") return 0;
+      const n = parseFloat(String(v).replace(',', '.'));
+      return isNaN(n) ? 0 : n;
+    };
+    const applyKarColor = (el, karVal)=>{
+      if (!el) return;
+      el.style.color = (Number(karVal) < 0) ? 'var(--danger)' : 'var(--success)';
+      el.style.fontWeight = '700';
+    };
 
-    function downloadTemplate() {
+    // İlk script ile aynı mantık — KDV boşsa 0 alınır
+    function computeFromInputs({ cost_usd, cost_tl, exchange_rate, shipping_cost, commission_rate_percent, tax_rate_percent_raw, profit_margin_percent }) {
+      const costUsd = toNumber(cost_usd);
+      const costTl  = toNumber(cost_tl);
+      const exchangeRate = toNumber(exchange_rate);
+      const shippingCost = toNumber(shipping_cost);
+      const commissionRate = toNumber(commission_rate_percent) / 100;
+
+      let taxRate;
+      if (tax_rate_percent_raw === "" || tax_rate_percent_raw === null || tax_rate_percent_raw === undefined) {
+        taxRate = 0.00;
+      } else { taxRate = toNumber(tax_rate_percent_raw) / 100; }
+
+      const profitMargin = toNumber(profit_margin_percent) / 100;
+      const stopajRate = 0.01;
+
+      const baseCost = costUsd > 0 ? costUsd * exchangeRate : costTl;
+      const targetNet = baseCost * (1 + profitMargin);
+      const taxInternalRate = taxRate / (1 + taxRate);
+
+      const finalPrice = (targetNet + shippingCost) / (1 - commissionRate - taxInternalRate - (stopajRate / (1 + taxRate)));
+
+      const commissionAmount   = finalPrice * commissionRate;
+      const taxAmount          = finalPrice * taxInternalRate;
+      const priceExcludingTax  = finalPrice / (1 + taxRate);
+      const stopajAmount       = priceExcludingTax * stopajRate;
+      const netIncome          = finalPrice - commissionAmount - taxAmount - stopajAmount - shippingCost;
+
+      return { finalPrice, netIncome, commissionAmount, taxAmount, priceExcludingTax, stopajAmount, taxRate, commissionRate, stopajRate };
+    }
+
+    // --------- Template (base64) - SEN DOLDURACAKSIN ---------
+    const base64Excel = "UEsDBBQAAAAIAAAAPwBhXUk6TwEAAI8EAAATAAAAW0NvbnRlbnRfVHlwZXNdLnhtbK2Uy27CMBBF9/2KyNsqMXRRVRWBRR/LFqn0A1x7Qiwc2/IMFP6+k/BQW1Gggk2sZO7cc8eOPBgtG5ctIKENvhT9oicy8DoY66eleJ8853ciQ1LeKBc8lGIFKEbDq8FkFQEzbvZYipoo3kuJuoZGYREieK5UITWK+DVNZVR6pqYgb3q9W6mDJ/CUU+shhoNHqNTcUfa05M/rIAkciuxhLWxZpVAxOqsVcV0uvPlFyTeEgjs7DdY24jULhNxLaCt/AzZ9r7wzyRrIxirRi2pYJU3Q4xQiStYXh132xAxVZTWwx7zhlgLaQAZMHtkSElnYZT7I1iHB/+HbPWq7TyQunURaOcCzR8WYQBmsAahxxdr0CJn4f4L1s382v7M5AvwMafYRwuzSw7Zr0SjrT+B3YpTdcv7UP4Ps/I8dea0SmDdKfA1c/OS/e29zyO4+GX4BUEsDBBQAAAAIAAAAPwDyn0na6QAAAEsCAAALAAAAX3JlbHMvLnJlbHOtksFOwzAMQO98ReT7mm5ICKGluyCk3SY0PsAkbhu1jaPEg+7viZBADI1pB45x7Odny+vNPI3qjVL2HAwsqxoUBcvOh87Ay/5pcQ8qCwaHIwcycKQMm+Zm/UwjSqnJvY9ZFUjIBnqR+KB1tj1NmCuOFMpPy2lCKc/U6Yh2wI70qq7vdPrJgOaEqbbOQNq6Jaj9MdI1bG5bb+mR7WGiIGda/MooZEwdiYF51O+chlfmoSpQ0OddVte7/D2nnkjQoaC2nGgRU6lO4stav3Uc210J58+MS0K3/7kcmoWCI3dZCWP8MtInN9B8AFBLAwQUAAAACAAAAD8ARHVb8OgAAAC5AgAAGgAAAHhsL19yZWxzL3dvcmtib29rLnhtbC5yZWxzrZLBasMwEETv/Qqx91p2EkopkXMphVzb9AOEtLZMbElot2n99xEJTR0IoQefxIzYmQe7683P0IsDJuqCV1AVJQj0JtjOtwo+d2+PzyCItbe6Dx4VjEiwqR/W79hrzjPkukgih3hS4Jjji5RkHA6aihDR558mpEFzlqmVUZu9blEuyvJJpmkG1FeZYmsVpK2tQOzGiP/JDk3TGXwN5mtAzzcq5HdIe3KInEN1apEVXCySp6cqcirI2zCLOWE4z+IfyEmezbsMyzkZiMc+L/QCcdb36lez1jud0H5wytc2pZjavzDy6uLqI1BLAwQUAAAACAAAAD8AlY9UlWcBAAABAwAAGAAAAHhsL3dvcmtzaGVldHMvc2hlZXQxLnhtbI2SyW6DMBCG730Ky/fGkDRJhYAobZqmh0pVt7sDA1gBD7Kd0L59bWiiIl96m+WbfxY7Xn01NTmB0gJlQsNJQAnIDHMhy4R+vG+vbynRhsuc1yghod+g6Sq9ijtUB10BGGIFpE5oZUwbMaazChquJ9iCtJkCVcONdVXJdKuA531RU7NpECxYw4Wkg0Kk/qOBRSEy2GB2bECaQURBzY0dX1ei1TSNc2Fzbh+ioEjoOox2IWVp3Hf+FNDpPzYxfP8GNWQGcrs/JW6xPeLBJZ9sKHClzKvd9kO9KJJDwY+1ecVuB6KsjBWZX7ptuOFprLAjqhfXLXe3CqNbO2fmgmsX7XO20k1/SoOYnWzL7Je484lwTNz7xHRMbHxiNiYefOJmTGx9Yj4mHn1iMSZ2PrG8EMze6Xzq4XAtL+GZq1JITWoobE0wWVKihjv3tsG2t+aU7NEYbM5eZf8aKOfNKCkQzdlxz3n5vekPUEsDBBQAAAAIAAAAPwCDGGolSAEAACYCAAAPAAAAeGwvd29ya2Jvb2sueG1sjVHLTsMwELzzFdbeaR5qI1o1qcRLVEKARGnPJt40Vh07sh3S/j3rVClw47Qz493Rznq5OjaKfaF10ugckkkMDHVphNT7HD42j9c3wJznWnBlNOZwQger4mrZG3v4NObAaF67HGrv20UUubLGhruJaVHTS2Vswz1Ru49ca5ELVyP6RkVpHGdRw6WGs8PC/sfDVJUs8d6UXYPan00sKu5pe1fL1kGxrKTC7TkQ4237whta+6iAKe78g5AeRQ5ToqbHP4Lt2ttOqkBm8Qyi4hLyzTKBFe+U39BqozudK52maRY6Q9dWYu9+hgJlx53UwvQ5pFO67GlkyQxYP+CdFL4mIYvnF+0J5b72OcyzLA7m0S/34X5jZXoI9x5wQv8U6pr2J2wXkoBdi2RwGMdKrkpKE8rQmE5nyRxY1Sl1R9qrfjZ8MAhDY5LiG1BLAwQUAAAACAAAAD8AGGbsX8EAAABMAQAAFAAAAHhsL3NoYXJlZFN0cmluZ3MueG1sbdBBS8QwEAXgu78iDAh6cFM9iEiSBXfxojd3vYd2bIPNTDczFfffGxEPbj2+7/EYGLf+zKP5wCKJycP1qgGD1HKXqPew3z1e3YERjdTFkQk9HFFgHc6ciJo6JfEwqE731ko7YI6y4gmpNm9cctQaS29lKhg7GRA1j/amaW5tjonAtDyTeqg3ZkqHGTe/OThJwWl4iOWdO2c1OPstP7p/2Z7S7vlUnuayoFh6XiDnJEcmc3F+uei2r/9yLH/Z1neEL1BLAwQUAAAACAAAAD8Aaa6EGPsBAAA9BQAADQAAAHhsL3N0eWxlcy54bWy9VN+LnDAQfu9fEfJ+5yr0aIt69AoLhbYUbgt9jRo1kB+SjIveX99J4qoLdyzcQ1/MzOSbb2a+xOSPk5LkzK0TRhc0vT9QwnVtGqG7gv45He8+UeKA6YZJo3lBZ+7oY/khdzBL/txzDgQZtCtoDzB8SRJX91wxd28GrnGnNVYxQNd2iRssZ43zSUom2eHwkCgmNC3z1mhwpDajhoJmS6DM3Qs5M4ltpTQp89pIYwkgPfYRIpopHhHfmBSVFT7YMiXkHMOZD4SOFpwS2lgfTGKF+K2S/1ErLA6ThJTXw2KgzAcGwK0+okMW+zQPWF6j8JEm4G6gO8vmNPu4SwgL1q2MbfCg95VjqMwlbwETrOh6v4IZEr8JYBQajWCd0Ux6ykvGPpOEy1BQ6MNhRu3YCGaRLvGghf0mNqBCCzehiLl0eRMbYa/PshgoUc2lfPZMf9tVpxT5ppboUR0VfG8Kir+IP8mLieIuZqSJjuffs0XuHW32LloytSv/W9npG9nplk3YMMj5aOJ80XsKwM3/KkWnFb9IwC4u6Y0VL5jq73iNAW6pf0FA1D6ChxKGn9pFgXX4IMWVrGuU+L+roL/8YyF3bVajkCD0K5IiZzNtaoZdYBW+SVdVkKPhLRslnNbNgm72T96IUX1eUb/F2cCC2uwf/k6mD6GD7eEr/wFQSwMEFAAAAAgAAAA/ABj6RlSwBQAAUhsAABMAAAB4bC90aGVtZS90aGVtZTEueG1s7VlNj9tEGL7zK0a+t44TO82umq022aSF7bar3bSox4k9sacZe6yZyW5zQ+0RCQlREBckbhwQUKmVuJRfs1AERepf4PVHkvFmss22iwC1OSSe8fN+f/gd5+q1BzFDR0RIypO25VyuWYgkPg9oEratO4P+pZaFpMJJgBlPSNuaEmld2/rgKt5UEYkJAvJEbuK2FSmVbtq29GEby8s8JQncG3ERYwVLEdqBwMfANmZ2vVZr2jGmiYUSHAPX26MR9QkaZCytrRnzHoOvRMlsw2fi0M8l6hQ5Nhg72Y+cyi4T6AiztgVyAn48IA+UhRiWCm60rVr+seytq/aciKkVtBpdP/+UdCVBMK7ndCIczgmdvrtxZWfOv17wX8b1er1uz5nzywHY98FSZwnr9ltOZ8ZTAxWXy7y7Na/mVvEa/8YSfqPT6XgbFXxjgXeX8K1a092uV/DuAu8t69/Z7nabFby3wDeX8P0rG023is9BEaPJeAmdxXMemTlkxNkNI7wF8NYsARYoW8uugj5Rq3Itxve56AMgDy5WNEFqmpIR9gHXxfFQUJwJwJsEa3eKLV8ubWWykPQFTVXb+ijFUBELyKvnP7x6/hS9ev7k5OGzk4c/nzx6dPLwJwPhDZyEOuHL7z7/65tP0J9Pv335+EszXur433789NdfvjADlQ588dWT3589efH1Z398/9gA3xZ4qMMHNCYS3SLH6IDHYJtBABmK81EMIkwrFDgCpAHYU1EFeGuKmQnXIVXn3RXQAEzA65P7FV0PIzFR1ADcjeIKcI9z1uHCaM5uJks3Z5KEZuFiouMOMD4yye6eCm1vkkImUxPLbkQqau4ziDYOSUIUyu7xMSEGsnuUVvy6R33BJR8pdI+iDqZGlwzoUJmJbtAY4jI1KQihrvhm7y7qcGZiv0OOqkgoCMxMLAmruPE6nigcGzXGMdORN7GKTEoeToVfcbhUEOmQMI56AZHSRHNbTCvq7mLoRMaw77FpXEUKRccm5E3MuY7c4eNuhOPUqDNNIh37oRxDimK0z5VRCV6tkGwNccDJynDfpUSdr6zv0DAyJ0h2ZyLKrl3pvzFNzmrGjEI3ft+MZ/BteDSZSuJ0C16F+x823h08SfYJ5Pr7vvu+776LfXdVLa/bbRcN1tbn4pxfvHJIHlHGDtWUkZsyb80SlA76sJkvcqL5TJ5GcFmKq+BCgfNrJLj6mKroMMIpiHFyCaEsWYcSpVzCScBayTs/TlIwPt/zZmdAQGO1x4Niu6GfDeds8lUodUGNjMG6whpX3k6YUwDXlOZ4ZmnemdJszZtQDQhnB3+nWS9EQ8ZgRoLM7wWDWVguPEQywgEpY+QYDXEaa7qt9XqvadI2Gm8nbZ0g6eLcFeK8C4hSbSlK9nI5sqS6QseglVf3LOTjtG2NYJKCyzgFfjJrQJiFSdvyVWnKa4v5tMHmtHRqKw2uiEiFVDtYRgVVfmv26iRZ6F/33MwPF2OAoRutp0Wj5fyLWtinQ0tGI+KrFTuLZXmPTxQRh1FwjIZsIg4w6O0W2RVQCc+M+mwhoELdMvGqlV9WwelXNGV1YJZGuOxJLS32BTy/nuuQrzT17BW6v6EpjQs0xXt3TckyF8bWRpAfqGAMEBhlOdq2uFARhy6URtTvCxgcclmgF4KyyFRCLHvfnOlKjhZ9q+BRNLkwUgc0RIJCp1ORIGRflXa+hplT15+vM0Zln5mrK9Pid0iOCBtk1dvM7LdQNOsmpSNy3Omg2abqGob9//Dk466YfM4eDxaC3PPMIq7W9LVHwcbbqXDOR23dbHHdW/tRm8LhA2Vf0Lip8Nlivh3wA4g+mk+UCBLxUqssv/nmEHRuacZlrP7ZMWoRgtaKeF/k8Kk5u7HC2WeLe3NnewZfe2e72l4uUVs7yOSrpT+e+PA+yN6Bg9KEKVm8TXoAR83u7C8D4GMvSLf+BlBLAwQUAAAACAAAAD8AsE3iwSUBAABQAgAAEQAAAGRvY1Byb3BzL2NvcmUueG1snZLLTsMwEEX3fEXkfeIkLQisJJUAdUUlJIJA7Cx72lrED9mGtH+Pm1dbKSuW43vnzJ2Ri9VBNtEvWCe0KlGWpCgCxTQXalei93od36PIeao4bbSCEh3BoVV1UzBDmLbwarUB6wW4KICUI8yUaO+9IRg7tgdJXRIcKohbbSX1obQ7bCj7pjvAeZreYQmecuopPgFjMxHRgORsQpof23QAzjA0IEF5h7Mkw2evByvdbEOnXDil8EcDs9ZRnNwHJyZj27ZJu+isIX+GPzcvb92qsVCnUzFAVcEZYRao17Yq8GURDtdQ5zfhxFsB/PEY9Jm3YZG+D3gUApA+7qh8LJ6e6zWq8jS/jdNlnD/UWU7SnCwXX6eRV/1noByG/Js4Avrc15+g+gNQSwMEFAAAAAgAAAA/AF66p9N3AQAAEAMAABAAAABkb2NQcm9wcy9hcHAueG1snZLBTuswEEX3fEXkPXVSIfRUOUaogFjwRKUWWBtn0lg4tuUZopavx0nVkAIrsrozc3V9Mra42rU26yCi8a5kxSxnGTjtK+O2JXva3J3/YxmScpWy3kHJ9oDsSp6JVfQBIhnALCU4LFlDFBaco26gVThLY5cmtY+tolTGLfd1bTTceP3egiM+z/NLDjsCV0F1HsZAdkhcdPTX0Mrrng+fN/uQ8qS4DsEarSj9pPxvdPToa8pudxqs4NOhSEFr0O/R0F7mgk9LsdbKwjIFy1pZBMG/GuIeVL+zlTIRpeho0YEmHzM0H2lrc5a9KoQep2SdikY5YgfboRi0DUhRvvj4hg0AoeBjc5BT71SbC1kMhiROjXwESfoUcWPIAj7WKxXpF+JiSjwwsAnjuucrfvAdT/qWvfRtUC4tkI/qwbg3fAobf6MIjus8bYp1oyJU6QbGdY8NcZ+4ou39y0a5LVRHz89Bf/nPhwcui/ksT99w58ee4F9vWX4CUEsBAhQDFAAAAAgAAAA/AGFdSTpPAQAAjwQAABMAAAAAAAAAAAAAAICBAAAAAFtDb250ZW50X1R5cGVzXS54bWxQSwECFAMUAAAACAAAAD8A8p9J2ukAAABLAgAACwAAAAAAAAAAAAAAgIGAAQAAX3JlbHMvLnJlbHNQSwECFAMUAAAACAAAAD8ARHVb8OgAAAC5AgAAGgAAAAAAAAAAAAAAgIGSAgAAeGwvX3JlbHMvd29ya2Jvb2sueG1sLnJlbHNQSwECFAMUAAAACAAAAD8AlY9UlWcBAAABAwAAGAAAAAAAAAAAAAAAgIGyAwAAeGwvd29ya3NoZWV0cy9zaGVldDEueG1sUEsBAhQDFAAAAAgAAAA/AIMYaiVIAQAAJgIAAA8AAAAAAAAAAAAAAICBTwUAAHhsL3dvcmtib29rLnhtbFBLAQIUAxQAAAAIAAAAPwAYZuxfwQAAAEwBAAAUAAAAAAAAAAAAAACAgcQGAAB4bC9zaGFyZWRTdHJpbmdzLnhtbFBLAQIUAxQAAAAIAAAAPwBproQY+wEAAD0FAAANAAAAAAAAAAAAAACAgbcHAAB4bC9zdHlsZXMueG1sUEsBAhQDFAAAAAgAAAA/ABj6RlSwBQAAUhsAABMAAAAAAAAAAAAAAICB3QkAAHhsL3RoZW1lL3RoZW1lMS54bWxQSwECFAMUAAAACAAAAD8AsE3iwSUBAABQAgAAEQAAAAAAAAAAAAAAgIG+DwAAZG9jUHJvcHMvY29yZS54bWxQSwECFAMUAAAACAAAAD8AXrqn03cBAAAQAwAAEAAAAAAAAAAAAAAAgIESEQAAZG9jUHJvcHMvYXBwLnhtbFBLBQYAAAAACgAKAIACAAC3EgAAAAA=";
+
+
+    // ---------- State / UI refs ----------
+    let exportData = [];
+    const fileInput  = document.getElementById('excelFile');
+    const fileNameEl = document.getElementById('fileName');
+    const statusEl   = document.getElementById('status');
+
+    document.getElementById('downloadTemplateBtn').addEventListener('click', () => {
+      if (!base64Excel) { alert("Şablon henüz eklenmemiş."); return; }
       const byteCharacters = atob(base64Excel);
-      const byteNumbers = new Array(byteCharacters.length).fill().map((_, i) => byteCharacters.charCodeAt(i));
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const byteNumbers = Array.from({length: byteCharacters.length}, (_,i)=>byteCharacters.charCodeAt(i));
+      const blob = new Blob([new Uint8Array(byteNumbers)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = "son_toplu_satis_sablonu.xlsx";
       link.click();
+    });
+
+    fileInput.addEventListener('change', ()=>{
+      fileNameEl.textContent = fileInput.files?.[0]?.name ?? "Henüz dosya seçilmedi";
+    });
+
+    document.getElementById('calcBtn').addEventListener('click', handleFile);
+    document.getElementById('exportBtn').addEventListener('click', exportResults);
+    const setStatus = (msg)=> statusEl.innerHTML = msg;
+
+    // Tek satırı manuel fiyata göre yeniden hesaplar (DOM + exportData)
+    function recalcRow(idx, manualPriceVal){
+      const row = exportData[idx];
+      const taxRate = toNumber(row["KDV (%)"]) / 100;
+      const commissionRate = toNumber(row["Komisyon (%)"]) / 100;
+      const stopajRate = 0.01;
+      const shipping = toNumber(row["Kargo"]);
+      const usd = toNumber(row.USD);
+      const tl  = toNumber(row.TL);
+      const kur = toNumber(row.Kur);
+      const baseCost = usd > 0 ? usd * kur : tl;
+
+      let finalPrice, commissionAmount, taxAmount, priceExTax, stopajAmount, netIncome, newKarPct;
+
+      if (manualPriceVal !== null && manualPriceVal !== undefined && String(manualPriceVal).trim() !== ""){
+        finalPrice = toNumber(manualPriceVal);
+        const taxInternalRate = taxRate / (1 + taxRate);
+        commissionAmount = finalPrice * commissionRate;
+        taxAmount        = finalPrice * taxInternalRate;
+        priceExTax       = finalPrice / (1 + taxRate);
+        stopajAmount     = priceExTax * stopajRate;
+        netIncome        = finalPrice - commissionAmount - taxAmount - stopajAmount - shipping;
+
+        // Kar oranını manuel fiyata göre dinamik hesapla
+        if (baseCost > 0){
+          newKarPct = ((netIncome - baseCost) / baseCost) * 100;
+        } else {
+          newKarPct = 0;
+        }
+
+        row["Manuel Fiyat (TL)"] = Number(finalPrice.toFixed(2));
+        row["Kar (%)"] = Number(newKarPct.toFixed(2)); // export'a da yaz
+      } else {
+        // Manuel boş -> orijinal formül + orijinal kar oranına dön
+        const out = computeFromInputs({
+          cost_usd: usd, cost_tl: tl, exchange_rate: kur, shipping_cost: shipping,
+          commission_rate_percent: row["Komisyon (%)"], tax_rate_percent_raw: row["KDV (%)"], profit_margin_percent: row.__origKar
+        });
+        finalPrice     = out.finalPrice;
+        commissionAmount = out.commissionAmount;
+        taxAmount        = out.taxAmount;
+        priceExTax       = out.priceExcludingTax;
+        stopajAmount     = out.stopajAmount;
+        netIncome        = out.netIncome;
+
+        row["Manuel Fiyat (TL)"] = "";
+        row["Kar (%)"] = row.__origKar; // orijinal kar'ı geri yükle
+      }
+
+      // Değerleri yaz
+      row["Fiyat (TL)"]         = Number(finalPrice.toFixed(2));
+      row["Net Gelir (TL)"]     = Number(netIncome.toFixed(2));
+      row["Komisyon Tutarı"]    = Number(commissionAmount.toFixed(2));
+      row["KDV Tutarı"]         = Number(taxAmount.toFixed(2));
+      row["KDV Hariç Fiyat"]    = Number(priceExTax.toFixed(2));
+      row["Stopaj Tutarı"]      = Number(stopajAmount.toFixed(2));
+
+      // DOM güncelle
+      document.getElementById(`price-${idx}`).textContent   = fmtTL(row["Fiyat (TL)"]);
+      document.getElementById(`net-${idx}`).textContent     = fmtTL(row["Net Gelir (TL)"]);
+      document.getElementById(`kom-${idx}`).textContent     = fmtTL(row["Komisyon Tutarı"]);
+      document.getElementById(`kdvamt-${idx}`).textContent  = fmtTL(row["KDV Tutarı"]);
+      document.getElementById(`ex-${idx}`).textContent      = fmtTL(row["KDV Hariç Fiyat"]);
+      document.getElementById(`stp-${idx}`).textContent     = fmtTL(row["Stopaj Tutarı"]);
+
+      const karEl = document.getElementById(`kar-${idx}`);
+      karEl.textContent = fmtPct(row["Kar (%)"]) + "%";
+      applyKarColor(karEl, row["Kar (%)"]);
     }
 
     function handleFile() {
-      const file = document.getElementById('excelFile').files[0];
-      if (!file) return alert("Lütfen bir dosya seçin");
+      const file = fileInput.files?.[0];
+      if (!file) { alert("Lütfen bir Excel dosyası seçin."); return; }
 
+      setStatus("Hesaplanıyor…");
       const reader = new FileReader();
       reader.onload = function (e) {
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(sheet);
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
-        const tbody = document.getElementById('resultsTable').querySelector('tbody');
+        const tbody = document.querySelector('#resultsTable tbody');
         tbody.innerHTML = '';
         exportData = [];
 
-        jsonData.forEach((row, index) => {
+        rows.forEach((row, index) => {
           const barkod = row.Barkod || '';
-          const usd = parseFloat(row.USD) || 0;
-          const tl = parseFloat(row.TL) || 0;
-          const kur = parseFloat(row.Kur) || 0;
-          const kargo = parseFloat(row.Kargo) || 0;
-          const komisyon = parseFloat(row["Komisyon (%)"]) || 0;
-          const kdv = parseFloat(row["KDV (%)"]) || 0;
-          const kar = parseFloat(row["Kar (%)"]) || 0;
+          const usd  = toNumber(row.USD);
+          const tl   = toNumber(row.TL);
+          const kur  = toNumber(row.Kur);
+          const kargo = toNumber(row.Kargo);
+          const komisyon = toNumber(row["Komisyon (%)"]);
+          const kdvRaw = (row["KDV (%)"] === undefined || row["KDV (%)"] === null || String(row["KDV (%)"]).trim()==="") ? "" : row["KDV (%)"];
+          const kar  = toNumber(row["Kar (%)"]);
 
-          const baseCost = usd > 0 ? usd * kur : tl;
-          const costWithProfit = baseCost * (1 + kar / 100);
-          const taxInternalRate = (kdv / 100) / (1 + (kdv / 100));
-          const finalPrice = (costWithProfit + kargo) / (1 - komisyon / 100 - taxInternalRate);
+          const out = computeFromInputs({
+            cost_usd: usd, cost_tl: tl, exchange_rate: kur, shipping_cost: kargo,
+            commission_rate_percent: komisyon, tax_rate_percent_raw: kdvRaw, profit_margin_percent: kar
+          });
 
-          const result = {
+          const shownKdv = (kdvRaw === "" || kdvRaw === undefined ? 0 : toNumber(kdvRaw));
+
+          const resRow = {
             Barkod: barkod,
             USD: usd || '',
             TL: tl || '',
             Kur: kur || '',
             Kargo: kargo,
             "Komisyon (%)": komisyon,
-            "KDV (%)": kdv,
-            "Kar (%)": kar,
-            "Fiyat (TL)": finalPrice.toFixed(2)
+            "KDV (%)": shownKdv,
+            __origKar: kar,             // orijinal kar oranını sakla
+            "Kar (%)": kar,             // görüntü/eksporta gidecek alan (manuelde güncellenecek)
+            "Fiyat (TL)": Number(out.finalPrice.toFixed(2)),
+            "Net Gelir (TL)": Number(out.netIncome.toFixed(2)),
+            "Komisyon Tutarı": Number(out.commissionAmount.toFixed(2)),
+            "KDV Tutarı": Number(out.taxAmount.toFixed(2)),
+            "KDV Hariç Fiyat": Number(out.priceExcludingTax.toFixed(2)),
+            "Stopaj Tutarı": Number(out.stopajAmount.toFixed(2)),
+            "Manuel Fiyat (TL)": ""
           };
-          exportData.push(result);
+          exportData.push(resRow);
 
-          const rowHtml = `<tr>
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
             <td>${index + 1}</td>
             <td>${barkod}</td>
-            <td>${usd || '-'}</td>
-            <td>${tl || '-'}</td>
-            <td>${kur || '-'}</td>
-            <td>${kargo}</td>
-            <td>${komisyon}%</td>
-            <td>${kdv}%</td>
-            <td>${kar}%</td>
-            <td>${finalPrice.toFixed(2)} TL</td>
-          </tr>`;
-          tbody.innerHTML += rowHtml;
+            <td>${usd ? fmtTL(usd) : '-'}</td>
+            <td>${tl ? fmtTL(tl) : '-'}</td>
+            <td>${kur ? fmtTL(kur) : '-'}</td>
+            <td>${fmtTL(kargo)}</td>
+            <td>${fmtPct(komisyon)}%</td>
+            <td>${fmtPct(shownKdv)}%</td>
+            <td id="kar-${index}">${fmtPct(kar)}%</td>
+            <td id="price-${index}"><b>${fmtTL(resRow["Fiyat (TL)"])}</b></td>
+            <td id="net-${index}">${fmtTL(resRow["Net Gelir (TL)"])}</td>
+            <td id="kom-${index}">${fmtTL(resRow["Komisyon Tutarı"])}</td>
+            <td id="kdvamt-${index}">${fmtTL(resRow["KDV Tutarı"])}</td>
+            <td id="ex-${index}">${fmtTL(resRow["KDV Hariç Fiyat"])}</td>
+            <td id="stp-${index}">${fmtTL(resRow["Stopaj Tutarı"])}</td>
+            <td><input type="number" step="0.01" class="manualPrice" data-index="${index}" placeholder="örn. 500" /></td>
+          `;
+          tbody.appendChild(tr);
+
+          // Başlangıç rengi (dosyadaki kar’a göre)
+          applyKarColor(document.getElementById(`kar-${index}`), kar);
         });
+
+        // Manuel fiyat inputlarını dinle
+        document.querySelectorAll('.manualPrice').forEach(inp=>{
+          inp.addEventListener('input', (e)=>{
+            const idx = e.target.dataset.index;
+            const val = e.target.value; // boş string => orijinal formüle dönüş
+            recalcRow(idx, val);
+          });
+        });
+
+        setStatus(`Hesaplama tamamlandı: ${exportData.length} satır işlendi. Manuel fiyat girersen satır otomatik güncellenir.`);
       };
       reader.readAsArrayBuffer(file);
     }
 
     function exportResults() {
-      if (exportData.length === 0) {
-        alert("Hesaplanmış veri yok!");
-        return;
-      }
-      const ws = XLSX.utils.json_to_sheet(exportData);
+      if (exportData.length === 0) { alert("Hesaplanmış veri yok!"); return; }
+      // Export'ta __origKar alanını çıkarmayalım
+      const clean = exportData.map(({__origKar, ...rest})=>rest);
+      const ws = XLSX.utils.json_to_sheet(clean);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Sonuclar");
       XLSX.writeFile(wb, "hesaplanan_satis_fiyatlari.xlsx");
