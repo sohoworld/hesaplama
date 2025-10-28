@@ -331,6 +331,29 @@
       return computeGivenShipping({ cost_usd, cost_tl, exchange_rate, shipping_cost: shipping, commission_rate_percent, tax_rate_percent_raw, profit_margin_percent });
     }
 
+
+    // ---- DESİ: Şablon Excel indir ----
+    function downloadDesiTemplate() {
+      // Yüklenecek dosyada kabul edilen başlıklar:
+      // Min Desi | Max Desi | Kargo TL
+      const headers = ["Min Desi", "Max Desi", "Kargo TL"];
+    
+      // Örnek birkaç satır (isterseniz boş bırakılabilir)
+      const sampleRows = [
+        [0, 0.99, 44.50],
+        [1, 1.99, 49.90],
+        [2, 2.99, 59.90]
+      ];
+    
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...sampleRows]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "DESI");
+      XLSX.writeFile(wb, "desi_fiyat_sablonu.xlsx");
+    }
+    
+    document.getElementById("downloadDesiTemplate")
+      .addEventListener("click", downloadDesiTemplate);
+    
     // ---------- Şablon (Desi sütunlu) ----------
     function downloadTemplate(){
       const headers = ["Barkod","USD","TL","Kur","Desi","Komisyon (%)","KDV (%)","Kar (%)"];
