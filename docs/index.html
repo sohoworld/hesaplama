@@ -270,11 +270,15 @@
     const fmtPct =(n)=> new Intl.NumberFormat('tr-TR',{minimumFractionDigits:0, maximumFractionDigits:2}).format(Number(n||0));
     const clampPct = v => Math.max(0, Math.min(100, toNumber(v)));
     const STOPAJ_RATE = 0.01;
+    const STOPAJ_VAT_RATE = 0.20; // Stopaj hesabında KDV her zaman %20 varsayılacak
 
     function applyKarColor(el, karVal){ if(!el) return; el.style.color = (Number(karVal) < 0) ? 'var(--danger)' : 'var(--success)'; el.style.fontWeight='700'; }
     function denomOrThrow(commissionRate, taxRate){
       const taxInternalRate = taxRate / (1 + taxRate);
-      const denom = 1 - commissionRate - taxInternalRate - (STOPAJ_RATE / (1 + taxRate));
+
+      // Stopaj paydası her zaman %20 KDV varsayımıyla
+      const denom = 1 - commissionRate - taxInternalRate - (STOPAJ_RATE / (1 + STOPAJ_VAT_RATE));
+
       if (denom <= 0.000001) throw new Error("Kesinti oranları toplamı çok yüksek; fiyat hesaplanamıyor.");
       return {denom, taxInternalRate};
     }
@@ -312,7 +316,11 @@
       const commissionAmount   = finalPrice * commissionRate;
       const taxAmount          = finalPrice * taxInternalRate;
       const priceExcludingTax  = finalPrice / (1 + taxRate);
-      const stopajAmount       = priceExcludingTax * STOPAJ_RATE;
+
+      // Stopaj tabanı: her zaman %20 KDV varsayımıyla
+      const stopajBase         = finalPrice / (1 + STOPAJ_VAT_RATE);
+      const stopajAmount       = stopajBase * STOPAJ_RATE;
+
       const netIncome          = finalPrice - commissionAmount - taxAmount - stopajAmount - shippingCost;
 
       return { finalPrice, netIncome, commissionAmount, taxAmount, priceExcludingTax, stopajAmount, baseCost, shippingCost, taxRate, commissionRate };
@@ -337,23 +345,23 @@
       // Yüklenecek dosyada kabul edilen başlıklar:
       // Min Desi | Max Desi | Kargo TL
       const headers = ["Min Desi", "Max Desi", "Kargo TL"];
-    
+
       // Örnek birkaç satır (isterseniz boş bırakılabilir)
       const sampleRows = [
         [0, 0.99, 44.50],
         [1, 1.99, 49.90],
         [2, 2.99, 59.90]
       ];
-    
+
       const ws = XLSX.utils.aoa_to_sheet([headers, ...sampleRows]);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "DESI");
       XLSX.writeFile(wb, "desi_fiyat_sablonu.xlsx");
     }
-    
+
     document.getElementById("downloadDesiTemplate")
       .addEventListener("click", downloadDesiTemplate);
-    
+
     // ---------- Şablon (Desi sütunlu) ----------
     function downloadTemplate(){
       const headers = ["Barkod","USD","TL","Kur","Desi","Komisyon (%)","KDV (%)","Kar (%)"];
@@ -440,7 +448,11 @@
       const commissionAmount = finalPrice * commissionRate;
       const taxAmount = finalPrice * taxInternalRate;
       const priceExcludingTax = finalPrice / (1 + taxRate);
-      const stopajAmount = priceExcludingTax * STOPAJ_RATE;
+
+      // Stopaj: her zaman %20 KDV varsayımıyla
+      const stopajBase = finalPrice / (1 + STOPAJ_VAT_RATE);
+      const stopajAmount = stopajBase * STOPAJ_RATE;
+
       const netIncome = finalPrice - commissionAmount - taxAmount - stopajAmount - toNumber(kargo);
 
       const karPct = baseCost > 0 ? ((netIncome - baseCost) / baseCost) * 100 : 0;
@@ -476,7 +488,11 @@
         commissionAmount = finalPrice * commissionRate;
         taxAmount        = finalPrice * taxInternalRate;
         priceExTax       = finalPrice / (1 + taxRate);
-        stopajAmount     = priceExTax * STOPAJ_RATE;
+
+        // Stopaj: her zaman %20 KDV varsayımıyla
+        const stopajBase = finalPrice / (1 + STOPAJ_VAT_RATE);
+        stopajAmount     = stopajBase * STOPAJ_RATE;
+
         netIncome        = finalPrice - commissionAmount - taxAmount - stopajAmount - usedShipping;
         newKarPct = baseCost > 0 ? ((netIncome - baseCost) / baseCost) * 100 : 0;
         row["Manuel Fiyat (TL)"] = Number(finalPrice.toFixed(2));
