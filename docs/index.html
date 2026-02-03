@@ -149,6 +149,7 @@
         <div class="pill" id="singleManual" style="display:none">
           <div class="kv"><div><div class="lbl">Manuel Satış Fiyatı</div><div id="sm_price" style="font-weight:700;"></div></div></div>
           <div class="kv"><div><div class="lbl">Kar (%)</div><div id="sm_kar" style="font-weight:700;"></div></div></div>
+          <div class="kv"><div><div class="lbl">Kar Tutarı (TL)</div><div id="sm_kar_tutar" style="font-weight:700;color:#ff9800;"></div></div></div>
           <div class="kv"><div><div class="lbl">Net Gelir (TL)</div><div id="sm_net"></div></div></div>
           <div class="kv"><div><div class="lbl">Komisyon Tutarı</div><div id="sm_comm"></div></div></div>
           <div class="kv"><div><div class="lbl">KDV Tutarı</div><div id="sm_tax"></div></div></div>
@@ -457,6 +458,8 @@
 
       const karPct = baseCost > 0 ? ((netIncome - baseCost) / baseCost) * 100 : 0;
 
+      const karTutar = netIncome - baseCost;
+
       document.getElementById('singleManual').style.display = 'grid';
       document.getElementById('sm_price').textContent = fmtTL(finalPrice);
       document.getElementById('sm_net').textContent   = fmtTL(netIncome);
@@ -467,6 +470,7 @@
       const karEl = document.getElementById('sm_kar');
       karEl.textContent = fmtPct(karPct) + "%";
       applyKarColor(karEl, karPct);
+      document.getElementById('sm_kar_tutar').textContent = fmtTL(karTutar);
     }
 
     // ---- TOPLU: Tek satır manuel fiyat ile ----
