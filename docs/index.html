@@ -143,6 +143,7 @@
           <div class="kv"><div><div class="lbl">KDV Tutarı</div><div id="s_tax"></div></div></div>
           <div class="kv"><div><div class="lbl">KDV Hariç Fiyat</div><div id="s_ex"></div></div></div>
           <div class="kv"><div><div class="lbl">Stopaj Tutarı</div><div id="s_stp"></div></div></div>
+          <div class="kv"><div><div class="lbl">Ciro Bazlı Kar (%)</div><div id="s_ciro_pct" style="font-weight:700;"></div></div></div>
         </div>
 
         <!-- MANUEL fiyat sonuçları (dinamik) -->
@@ -150,6 +151,7 @@
           <div class="kv"><div><div class="lbl">Manuel Satış Fiyatı</div><div id="sm_price" style="font-weight:700;"></div></div></div>
           <div class="kv"><div><div class="lbl">Kar (%)</div><div id="sm_kar" style="font-weight:700;"></div></div></div>
           <div class="kv"><div><div class="lbl">Kar Tutarı (TL)</div><div id="sm_kar_tutar" style="font-weight:700;color:#ff9800;"></div></div></div>
+          <div class="kv"><div><div class="lbl">Ciro Bazlı Kar (%)</div><div id="sm_ciro_pct" style="font-weight:700;"></div></div></div>
           <div class="kv"><div><div class="lbl">Net Gelir (TL)</div><div id="sm_net"></div></div></div>
           <div class="kv"><div><div class="lbl">Komisyon Tutarı</div><div id="sm_comm"></div></div></div>
           <div class="kv"><div><div class="lbl">KDV Tutarı</div><div id="sm_tax"></div></div></div>
@@ -471,6 +473,11 @@
       karEl.textContent = fmtPct(karPct) + "%";
       applyKarColor(karEl, karPct);
       document.getElementById('sm_kar_tutar').textContent = fmtTL(karTutar);
+      const ciroPct = finalPrice > 0 ? (karTutar / finalPrice) * 100 : 0;
+      const ciroEl = document.getElementById('sm_ciro_pct');
+      ciroEl.textContent = fmtPct(ciroPct) + "%";
+      applyKarColor(ciroEl, ciroPct);
+      
     }
 
     // ---- TOPLU: Tek satır manuel fiyat ile ----
