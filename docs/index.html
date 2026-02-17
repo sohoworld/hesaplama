@@ -39,7 +39,7 @@
     .status{ margin:10px 14px 0; font-size:13px; color:var(--muted); }
 
     .table-wrap{ margin-top:14px; border-top:1px solid var(--border); overflow:auto; border-bottom-left-radius:var(--radius); border-bottom-right-radius:var(--radius); }
-    table{width:100%; border-collapse:separate; border-spacing:0; min-width:1100px;}
+    table{width:100%; border-collapse:separate; border-spacing:0; min-width:1250px;}
     thead th{ position:sticky; top:0; z-index:1; background:var(--table-head); color:var(--table-head-text); font-weight:700; text-align:center; padding:12px 10px; font-size:13px; }
     tbody td{padding:10px; text-align:center; border-bottom:1px solid var(--border); font-size:13px;}
     tbody tr:nth-child(odd){background:#fafafa}
@@ -67,14 +67,14 @@
       position:fixed; inset:0; display:none;
       align-items:center; justify-content:center;
       background:var(--overlay);
-      z-index: 9999;               /* tablo thead (sticky) üstüne çıkar */
+      z-index: 9999;
     }
     .modal.active{ display:flex; }
 
     .modal .box{
       width:min(900px,95vw);
       background:#fff; border-radius:14px; box-shadow:var(--shadow); border:1px solid var(--border);
-      max-height:85vh;              /* ekranı taşırma */
+      max-height:85vh;
       display:flex; flex-direction:column;
     }
     .box .head{
@@ -83,11 +83,10 @@
     }
     .box .head h3{ margin:0; font-size:16px; }
 
-    /* içerik kendi içinde scroll olsun, dışarı taşmasın */
     .box .content{ padding:14px; overflow:auto; }
     .rows{
       display:grid; gap:8px;
-      max-height:320px;            /* gerektiğinde artırabilirsin */
+      max-height:320px;
       overflow-y:auto; padding-right:4px;
     }
     .rows > div{
@@ -126,7 +125,17 @@
 
           <div><label>Komisyon (%)</label><input type="text" id="s_commission_rate" value="21,5"></div>
           <div><label>KDV (%) <span class="muted">(boşsa 0)</span></label><input type="text" id="s_tax_rate" placeholder="örn. 0"></div>
-          <div><label>Kar Oranı (%)</label><input type="text" id="s_profit_margin" value="35"></div>
+
+          <div>
+            <label>Kar Oranı (%) <span class="muted"></span></label>
+            <input type="text" id="s_profit_margin" value="35">
+          </div>
+
+          <div>
+            <label>Ciro Bazlı Kar (%) <span class="muted"></span></label>
+            <input type="text" id="s_ciro_target" placeholder="örn. 20">
+          </div>
+
           <div><label>Manuel Satış Fiyatı (TL)</label><input type="text" id="s_manual_price" placeholder="örn. 500"></div>
         </div>
 
@@ -139,11 +148,13 @@
         <div class="pill" id="singleResult" style="display:none">
           <div class="kv"><div><div class="lbl">Önerilen Satış Fiyatı</div><div id="s_price" style="font-weight:700;"></div></div></div>
           <div class="kv"><div><div class="lbl">Elinize Geçecek Tutar</div><div id="s_net" style="font-weight:700;"></div></div></div>
+          <div class="kv"><div><div class="lbl">Kar Tutarı (TL)</div><div id="s_kar_tutar" style="font-weight:700;color:#ff9800;"></div></div></div>
           <div class="kv"><div><div class="lbl">Komisyon Tutarı</div><div id="s_comm"></div></div></div>
           <div class="kv"><div><div class="lbl">KDV Tutarı</div><div id="s_tax"></div></div></div>
           <div class="kv"><div><div class="lbl">KDV Hariç Fiyat</div><div id="s_ex"></div></div></div>
           <div class="kv"><div><div class="lbl">Stopaj Tutarı</div><div id="s_stp"></div></div></div>
           <div class="kv"><div><div class="lbl">Ciro Bazlı Kar (%)</div><div id="s_ciro_pct" style="font-weight:700;"></div></div></div>
+          <div class="kv"><div><div class="lbl">Kar (%)</div><div id="s_kar_pct" style="font-weight:700;"></div></div></div>
         </div>
 
         <!-- MANUEL fiyat sonuçları (dinamik) -->
@@ -182,7 +193,9 @@
             <thead>
               <tr>
                 <th>#</th><th>Barkod</th><th>USD</th><th>TL</th><th>Kur</th><th>Desi</th>
-                <th>Komisyon (%)</th><th>KDV (%)</th><th>Kar (%)</th><th>Fiyat (TL)</th>
+                <th>Komisyon (%)</th><th>KDV (%)</th>
+                <th>Kar (%)</th><th>Ciro Bazlı Kar (%)</th>
+                <th>Fiyat (TL)</th>
                 <th>Kargo (TL)</th>
                 <th>Net Gelir (TL)</th><th>Komisyon Tutarı</th><th>KDV Tutarı</th>
                 <th>KDV Hariç Fiyat</th><th>Stopaj Tutarı</th><th>Manuel Satış Fiyatı Gir</th>
@@ -301,20 +314,38 @@
       return row ? toNumber(row.price) : 0;
     }
 
-    // Fiyat bilinmiyorken baremle iteratif çözüm
-    function computeGivenShipping({ cost_usd, cost_tl, exchange_rate, shipping_cost, commission_rate_percent, tax_rate_percent_raw, profit_margin_percent }){
+    // ------------------------------------------------------------
+    //  HEDEF MODU: Kar (%) (maliyete göre)  VEYA  Ciro Bazlı Kar (%)
+    // ------------------------------------------------------------
+    function computeGivenShipping({
+      cost_usd, cost_tl, exchange_rate, shipping_cost,
+      commission_rate_percent, tax_rate_percent_raw,
+      profit_margin_percent, ciro_profit_percent
+    }){
       const costUsd = toNumber(cost_usd);
       const costTl  = toNumber(cost_tl);
       const exchangeRate = toNumber(exchange_rate);
       const shippingCost = toNumber(shipping_cost);
       const commissionRate = clampPct(commission_rate_percent)/100;
       const taxRate = (tax_rate_percent_raw===""||tax_rate_percent_raw==null) ? 0 : clampPct(tax_rate_percent_raw)/100;
-      const profitMargin = clampPct(profit_margin_percent)/100;
 
       const baseCost = costUsd > 0 ? costUsd * exchangeRate : costTl;
-      const targetNet = baseCost * (1 + profitMargin);
       const {denom, taxInternalRate} = denomOrThrow(commissionRate, taxRate);
-      const finalPrice = (targetNet + shippingCost) / denom;
+
+      const ciroTargetRaw = (ciro_profit_percent==="" || ciro_profit_percent==null) ? "" : String(ciro_profit_percent).trim();
+      const hasCiroTarget = ciroTargetRaw !== "";
+
+      let finalPrice;
+      if (hasCiroTarget){
+        const m = clampPct(ciro_profit_percent)/100; // ciro bazlı hedef
+        const d = denom - m;
+        if (d <= 0.000001) throw new Error("Ciro bazlı hedef + kesintiler nedeniyle fiyat hesaplanamıyor. (denom - hedef <= 0)");
+        finalPrice = (baseCost + shippingCost) / d;
+      } else {
+        const profitMargin = clampPct(profit_margin_percent)/100; // maliyete göre hedef
+        const targetNet = baseCost * (1 + profitMargin);
+        finalPrice = (targetNet + shippingCost) / denom;
+      }
 
       const commissionAmount   = finalPrice * commissionRate;
       const taxAmount          = finalPrice * taxInternalRate;
@@ -328,34 +359,44 @@
 
       return { finalPrice, netIncome, commissionAmount, taxAmount, priceExcludingTax, stopajAmount, baseCost, shippingCost, taxRate, commissionRate };
     }
-    function computeWithBarem({ cost_usd, cost_tl, exchange_rate, commission_rate_percent, tax_rate_percent_raw, profit_margin_percent, desi }){
+
+    function computeWithBarem({
+      cost_usd, cost_tl, exchange_rate,
+      commission_rate_percent, tax_rate_percent_raw,
+      profit_margin_percent, ciro_profit_percent,
+      desi
+    }){
       let guessPrice = 100;
       let shipping = shippingByBarem(guessPrice, desi);
       let lastTier=-1;
       for (let i=0;i<12;i++){
-        const out = computeGivenShipping({ cost_usd, cost_tl, exchange_rate, shipping_cost: shipping, commission_rate_percent, tax_rate_percent_raw, profit_margin_percent });
+        const out = computeGivenShipping({
+          cost_usd, cost_tl, exchange_rate,
+          shipping_cost: shipping,
+          commission_rate_percent, tax_rate_percent_raw,
+          profit_margin_percent, ciro_profit_percent
+        });
         const tier = out.finalPrice < 150 ? 1 : (out.finalPrice < 300 ? 2 : 3);
         const newShipping = shippingByBarem(out.finalPrice, desi);
         if (Math.abs(newShipping - shipping) < 0.001 && tier===lastTier) return { ...out, shippingCost: newShipping };
         lastTier = tier; shipping = newShipping; guessPrice = out.finalPrice;
       }
-      return computeGivenShipping({ cost_usd, cost_tl, exchange_rate, shipping_cost: shipping, commission_rate_percent, tax_rate_percent_raw, profit_margin_percent });
+      return computeGivenShipping({
+        cost_usd, cost_tl, exchange_rate,
+        shipping_cost: shipping,
+        commission_rate_percent, tax_rate_percent_raw,
+        profit_margin_percent, ciro_profit_percent
+      });
     }
-
 
     // ---- DESİ: Şablon Excel indir ----
     function downloadDesiTemplate() {
-      // Yüklenecek dosyada kabul edilen başlıklar:
-      // Min Desi | Max Desi | Kargo TL
       const headers = ["Min Desi", "Max Desi", "Kargo TL"];
-
-      // Örnek birkaç satır (isterseniz boş bırakılabilir)
       const sampleRows = [
         [0, 0.99, 44.50],
         [1, 1.99, 49.90],
         [2, 2.99, 59.90]
       ];
-
       const ws = XLSX.utils.aoa_to_sheet([headers, ...sampleRows]);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "DESI");
@@ -365,10 +406,10 @@
     document.getElementById("downloadDesiTemplate")
       .addEventListener("click", downloadDesiTemplate);
 
-    // ---------- Şablon (Desi sütunlu) ----------
+    // ---------- Şablon (Desi + Ciro Bazlı Kar sütunlu) ----------
     function downloadTemplate(){
-      const headers = ["Barkod","USD","TL","Kur","Desi","Komisyon (%)","KDV (%)","Kar (%)"];
-      const ws = XLSX.utils.aoa_to_sheet([headers, ["", "", "", "39", "", "21,5", "", "35"]]);
+      const headers = ["Barkod","USD","TL","Kur","Desi","Komisyon (%)","KDV (%)","Kar (%)","Ciro Bazlı Kar (%)"];
+      const ws = XLSX.utils.aoa_to_sheet([headers, ["", "", "", "39", "", "21,5", "", "35", ""]]);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Veri");
       XLSX.writeFile(wb, "toplu_satis_sablonu_desi.xlsx");
@@ -384,8 +425,16 @@
     document.getElementById('downloadTemplateBtn').addEventListener('click', downloadTemplate);
     fileInput.addEventListener('change', ()=>{ fileNameEl.textContent = fileInput.files?.[0]?.name ?? "Henüz dosya seçilmedi"; });
 
-    // ---- Tekli hesapla ----
-    document.getElementById('singleCalcBtn').addEventListener('click', ()=>{
+    // ------------------------------------------------------------
+    // TEKLİ: ÖNERİLEN SONUCU DİNAMİK HESAPLAMA (BUTONA BASMADAN)
+    // ------------------------------------------------------------
+    let singleAutoTimer = null;
+    function scheduleSingleAutoCalc(){
+      clearTimeout(singleAutoTimer);
+      singleAutoTimer = setTimeout(()=>{ updateSingleAuto(); }, 120);
+    }
+
+    function updateSingleAuto(){
       try{
         const usd=document.getElementById('s_cost_usd').value;
         const tl=document.getElementById('s_cost_tl').value;
@@ -393,12 +442,32 @@
         const kom=document.getElementById('s_commission_rate').value;
         const kdv=document.getElementById('s_tax_rate').value;
         const kar=document.getElementById('s_profit_margin').value;
+        const ciroTarget=document.getElementById('s_ciro_target').value;
         const manualShip=document.getElementById('s_shipping_cost').value;
         const desi=document.getElementById('s_desi').value;
 
+        // Hiç veri yoksa sonuç panelini kapat (görsel kirlilik olmasın)
+        const hasAny =
+          String(usd).trim()!=="" || String(tl).trim()!=="" || String(kur).trim()!=="" ||
+          String(kom).trim()!=="" || String(kdv).trim()!=="" || String(kar).trim()!=="" ||
+          String(ciroTarget).trim()!=="" || String(manualShip).trim()!=="" || String(desi).trim()!=="";
+        if (!hasAny){
+          document.getElementById('singleResult').style.display = 'none';
+          return;
+        }
+
         const out = (String(manualShip).trim()!=="")
-          ? computeGivenShipping({ cost_usd:usd, cost_tl:tl, exchange_rate:kur, shipping_cost:manualShip, commission_rate_percent:kom, tax_rate_percent_raw:kdv, profit_margin_percent:kar })
-          : computeWithBarem({ cost_usd:usd, cost_tl:tl, exchange_rate:kur, commission_rate_percent:kom, tax_rate_percent_raw:kdv, profit_margin_percent:kar, desi });
+          ? computeGivenShipping({
+              cost_usd:usd, cost_tl:tl, exchange_rate:kur, shipping_cost:manualShip,
+              commission_rate_percent:kom, tax_rate_percent_raw:kdv,
+              profit_margin_percent:kar, ciro_profit_percent:ciroTarget
+            })
+          : computeWithBarem({
+              cost_usd:usd, cost_tl:tl, exchange_rate:kur,
+              commission_rate_percent:kom, tax_rate_percent_raw:kdv,
+              profit_margin_percent:kar, ciro_profit_percent:ciroTarget,
+              desi
+            });
 
         document.getElementById('singleResult').style.display = 'grid';
         document.getElementById('s_price').textContent = fmtTL(out.finalPrice);
@@ -408,13 +477,93 @@
         document.getElementById('s_ex').textContent    = fmtTL(out.priceExcludingTax);
         document.getElementById('s_stp').textContent   = fmtTL(out.stopajAmount);
 
+        const karTutar = out.netIncome - out.baseCost;
+        document.getElementById('s_kar_tutar').textContent = fmtTL(karTutar);
+
+        const karPct = out.baseCost > 0 ? (karTutar / out.baseCost) * 100 : 0;
+        const ciroPct = out.finalPrice > 0 ? (karTutar / out.finalPrice) * 100 : 0;
+
+        const sCiroEl = document.getElementById('s_ciro_pct');
+        sCiroEl.textContent = fmtPct(ciroPct) + "%";
+        applyKarColor(sCiroEl, ciroPct);
+
+        const sKarEl = document.getElementById('s_kar_pct');
+        sKarEl.textContent = fmtPct(karPct) + "%";
+        applyKarColor(sKarEl, karPct);
+
+        // Manuel fiyat alanı doluysa onun paneli zaten dinamik; yine de güncelle
+        updateSingleManual();
+      }catch(err){
+        // Dinamikte sürekli alert istemiyoruz; sessiz geç (istersen status alanı ekleriz)
+        // Ama manuel hesapla butonuna basınca alert yine çalışacak.
+      }
+    }
+
+    // Tekli inputların hepsinde otomatik hesap çalışsın (Hesapla'ya basmadan)
+    [
+      's_cost_usd','s_cost_tl','s_exchange_rate','s_shipping_cost','s_desi',
+      's_commission_rate','s_tax_rate','s_profit_margin','s_ciro_target'
+    ].forEach(id=>{
+      const el=document.getElementById(id);
+      el && el.addEventListener('input', scheduleSingleAutoCalc);
+    });
+
+    // ---- Tekli hesapla (buton yine kalsın) ----
+    document.getElementById('singleCalcBtn').addEventListener('click', ()=>{
+      try{
+        // buton basınca direkt güncelle (hata varsa alert)
+        const usd=document.getElementById('s_cost_usd').value;
+        const tl=document.getElementById('s_cost_tl').value;
+        const kur=document.getElementById('s_exchange_rate').value;
+        const kom=document.getElementById('s_commission_rate').value;
+        const kdv=document.getElementById('s_tax_rate').value;
+        const kar=document.getElementById('s_profit_margin').value;
+        const ciroTarget=document.getElementById('s_ciro_target').value;
+        const manualShip=document.getElementById('s_shipping_cost').value;
+        const desi=document.getElementById('s_desi').value;
+
+        const out = (String(manualShip).trim()!=="")
+          ? computeGivenShipping({
+              cost_usd:usd, cost_tl:tl, exchange_rate:kur, shipping_cost:manualShip,
+              commission_rate_percent:kom, tax_rate_percent_raw:kdv,
+              profit_margin_percent:kar, ciro_profit_percent:ciroTarget
+            })
+          : computeWithBarem({
+              cost_usd:usd, cost_tl:tl, exchange_rate:kur,
+              commission_rate_percent:kom, tax_rate_percent_raw:kdv,
+              profit_margin_percent:kar, ciro_profit_percent:ciroTarget,
+              desi
+            });
+
+        document.getElementById('singleResult').style.display = 'grid';
+        document.getElementById('s_price').textContent = fmtTL(out.finalPrice);
+        document.getElementById('s_net').textContent   = fmtTL(out.netIncome);
+        document.getElementById('s_comm').textContent  = fmtTL(out.commissionAmount);
+        document.getElementById('s_tax').textContent   = fmtTL(out.taxAmount);
+        document.getElementById('s_ex').textContent    = fmtTL(out.priceExcludingTax);
+        document.getElementById('s_stp').textContent   = fmtTL(out.stopajAmount);
+
+        const karTutar = out.netIncome - out.baseCost;
+        document.getElementById('s_kar_tutar').textContent = fmtTL(karTutar);
+
+        const karPct = out.baseCost > 0 ? (karTutar / out.baseCost) * 100 : 0;
+        const ciroPct = out.finalPrice > 0 ? (karTutar / out.finalPrice) * 100 : 0;
+
+        const sCiroEl = document.getElementById('s_ciro_pct');
+        sCiroEl.textContent = fmtPct(ciroPct) + "%";
+        applyKarColor(sCiroEl, ciroPct);
+
+        const sKarEl = document.getElementById('s_kar_pct');
+        sKarEl.textContent = fmtPct(karPct) + "%";
+        applyKarColor(sKarEl, karPct);
+
         updateSingleManual();
       }catch(err){ alert(err.message || String(err)); }
     });
 
     // ---- Tekli temizle ----
     document.getElementById('singleClearBtn').addEventListener('click', ()=>{
-      ['s_cost_usd','s_cost_tl','s_tax_rate','s_manual_price','s_shipping_cost','s_desi'].forEach(id=> document.getElementById(id).value = '');
+      ['s_cost_usd','s_cost_tl','s_tax_rate','s_manual_price','s_shipping_cost','s_desi','s_ciro_target'].forEach(id=> document.getElementById(id).value = '');
       document.getElementById('s_exchange_rate').value = '39';
       document.getElementById('s_commission_rate').value = '21,5';
       document.getElementById('s_profit_margin').value = '35';
@@ -469,15 +618,17 @@
       document.getElementById('sm_tax').textContent   = fmtTL(taxAmount);
       document.getElementById('sm_ex').textContent    = fmtTL(priceExcludingTax);
       document.getElementById('sm_stp').textContent   = fmtTL(stopajAmount);
+
       const karEl = document.getElementById('sm_kar');
       karEl.textContent = fmtPct(karPct) + "%";
       applyKarColor(karEl, karPct);
+
       document.getElementById('sm_kar_tutar').textContent = fmtTL(karTutar);
+
       const ciroPct = finalPrice > 0 ? (karTutar / finalPrice) * 100 : 0;
       const ciroEl = document.getElementById('sm_ciro_pct');
       ciroEl.textContent = fmtPct(ciroPct) + "%";
       applyKarColor(ciroEl, ciroPct);
-      
     }
 
     // ---- TOPLU: Tek satır manuel fiyat ile ----
@@ -491,7 +642,8 @@
       const desi = toNumber(row.Desi);
       const baseCost = usd > 0 ? usd * kur : tl;
 
-      let finalPrice, commissionAmount, taxAmount, priceExTax, stopajAmount, netIncome, newKarPct, usedShipping;
+      let finalPrice, commissionAmount, taxAmount, priceExTax, stopajAmount, netIncome, usedShipping;
+
       if (manualPriceVal !== null && manualPriceVal !== undefined && String(manualPriceVal).trim() !== ""){
         finalPrice = toNumber(manualPriceVal);
         usedShipping = shippingByBarem(finalPrice, desi);
@@ -500,28 +652,42 @@
         taxAmount        = finalPrice * taxInternalRate;
         priceExTax       = finalPrice / (1 + taxRate);
 
-        // Stopaj: her zaman %20 KDV varsayımıyla
         const stopajBase = finalPrice / (1 + STOPAJ_VAT_RATE);
         stopajAmount     = stopajBase * STOPAJ_RATE;
 
         netIncome        = finalPrice - commissionAmount - taxAmount - stopajAmount - usedShipping;
-        newKarPct = baseCost > 0 ? ((netIncome - baseCost) / baseCost) * 100 : 0;
+
+        const karTutar = netIncome - baseCost;
+        const newKarPct = baseCost > 0 ? (karTutar / baseCost) * 100 : 0;
+        const newCiroPct = finalPrice > 0 ? (karTutar / finalPrice) * 100 : 0;
+
         row["Manuel Fiyat (TL)"] = Number(finalPrice.toFixed(2));
         row["Kar (%)"] = Number(newKarPct.toFixed(2));
+        row["Ciro Bazlı Kar (%)"] = Number(newCiroPct.toFixed(2));
       } else {
         const out = computeWithBarem({
           cost_usd: usd, cost_tl: tl, exchange_rate: kur,
-          commission_rate_percent: row["Komisyon (%)"], tax_rate_percent_raw: row["KDV (%)"], profit_margin_percent: row.__origKar, desi
+          commission_rate_percent: row["Komisyon (%)"],
+          tax_rate_percent_raw: row.__kdvRaw,
+          profit_margin_percent: row.__origKar,
+          ciro_profit_percent: row.__origCiro,
+          desi
         });
-        finalPrice     = out.finalPrice;
+        finalPrice       = out.finalPrice;
         commissionAmount = out.commissionAmount;
         taxAmount        = out.taxAmount;
         priceExTax       = out.priceExcludingTax;
         stopajAmount     = out.stopajAmount;
         netIncome        = out.netIncome;
         usedShipping     = out.shippingCost;
+
+        const karTutar = netIncome - out.baseCost;
+        const calcKarPct = out.baseCost > 0 ? (karTutar / out.baseCost) * 100 : 0;
+        const calcCiroPct = finalPrice > 0 ? (karTutar / finalPrice) * 100 : 0;
+
         row["Manuel Fiyat (TL)"] = "";
-        row["Kar (%)"] = row.__origKar;
+        row["Kar (%)"] = Number(calcKarPct.toFixed(2));
+        row["Ciro Bazlı Kar (%)"] = Number(calcCiroPct.toFixed(2));
       }
 
       row["Fiyat (TL)"]         = Number(finalPrice.toFixed(2));
@@ -543,6 +709,10 @@
       const karEl = document.getElementById(`kar-${idx}`);
       karEl.textContent = fmtPct(row["Kar (%)"]) + "%";
       applyKarColor(karEl, row["Kar (%)"]);
+
+      const ciroEl = document.getElementById(`ciro-${idx}`);
+      ciroEl.textContent = fmtPct(row["Ciro Bazlı Kar (%)"]) + "%";
+      applyKarColor(ciroEl, row["Ciro Bazlı Kar (%)"]);
     }
 
     // ---- TOPLU: Dosyayı oku ve tabloyu üret ----
@@ -592,18 +762,33 @@
             const kdvRaw = (row["KDV (%)"] === undefined || row["KDV (%)"] === null || String(row["KDV (%)"]).trim()==="") ? "" : row["KDV (%)"];
             const kar  = toNumber(row["Kar (%)"]);
 
+            const ciroRaw = (row["Ciro Bazlı Kar (%)"] === undefined || row["Ciro Bazlı Kar (%)"] === null || String(row["Ciro Bazlı Kar (%)"]).trim()==="") ? "" : row["Ciro Bazlı Kar (%)"];
+
             const out = computeWithBarem({
               cost_usd: usd, cost_tl: tl, exchange_rate: kur,
-              commission_rate_percent: komisyon, tax_rate_percent_raw: kdvRaw, profit_margin_percent: kar, desi
+              commission_rate_percent: komisyon, tax_rate_percent_raw: kdvRaw,
+              profit_margin_percent: kar, ciro_profit_percent: ciroRaw,
+              desi
             });
 
             const shownKdv = (kdvRaw === "" || kdvRaw === undefined ? 0 : toNumber(kdvRaw));
             const usedShipping = shippingByBarem(out.finalPrice, desi);
 
+            const karTutar = out.netIncome - out.baseCost;
+            const calcKarPct = out.baseCost > 0 ? (karTutar / out.baseCost) * 100 : 0;
+            const calcCiroPct = out.finalPrice > 0 ? (karTutar / out.finalPrice) * 100 : 0;
+
             const resRow = {
               Barkod: barkod, USD: usd || '', TL: tl || '', Kur: kur || '', Desi: desi || '',
               "Komisyon (%)": komisyon, "KDV (%)": shownKdv,
-              __origKar: kar, "Kar (%)": kar,
+
+              __origKar: kar,
+              __origCiro: ciroRaw,
+              __kdvRaw: kdvRaw,
+
+              "Kar (%)": Number(calcKarPct.toFixed(2)),
+              "Ciro Bazlı Kar (%)": Number(calcCiroPct.toFixed(2)),
+
               "Fiyat (TL)": Number(out.finalPrice.toFixed(2)),
               "Kargo (TL)": Number(usedShipping.toFixed(2)),
               "Net Gelir (TL)": Number(out.netIncome.toFixed(2)),
@@ -625,7 +810,8 @@
               <td>${desi ? fmtTL(desi) : '-'}</td>
               <td>${fmtPct(komisyon)}%</td>
               <td>${fmtPct(shownKdv)}%</td>
-              <td id="kar-${index}">${fmtPct(kar)}%</td>
+              <td id="kar-${index}">${fmtPct(resRow["Kar (%)"])}%</td>
+              <td id="ciro-${index}">${fmtPct(resRow["Ciro Bazlı Kar (%)"])}%</td>
               <td id="price-${index}"><b>${fmtTL(resRow["Fiyat (TL)"])}</b></td>
               <td id="ship-${index}">${fmtTL(resRow["Kargo (TL)"])}</td>
               <td id="net-${index}">${fmtTL(resRow["Net Gelir (TL)"])}</td>
@@ -637,7 +823,8 @@
             `;
             tbody.appendChild(tr);
 
-            applyKarColor(document.getElementById(`kar-${index}`), kar);
+            applyKarColor(document.getElementById(`kar-${index}`), resRow["Kar (%)"]);
+            applyKarColor(document.getElementById(`ciro-${index}`), resRow["Ciro Bazlı Kar (%)"]);
           });
 
           document.querySelectorAll('.manualPrice').forEach(inp=>{
@@ -660,7 +847,7 @@
     // ---- TOPLU: dışa aktar ----
     function exportResults() {
       if (exportData.length === 0) { alert("Hesaplanmış veri yok!"); return; }
-      const clean = exportData.map(({__origKar, ...rest})=>rest);
+      const clean = exportData.map(({__origKar, __origCiro, __kdvRaw, ...rest})=>rest);
       const ws = XLSX.utils.json_to_sheet(clean);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Sonuclar");
@@ -764,6 +951,9 @@
       };
       reader.readAsArrayBuffer(file);
     });
+
+    // Sayfa açılır açılmaz tekli otomatik hesap altyapısı hazır olsun
+    // (Kullanıcı bir şey yazınca zaten tetiklenecek)
   </script>
 </body>
 </html>
