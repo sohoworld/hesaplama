@@ -93,7 +93,7 @@
       display:grid; grid-template-columns: 1fr 1fr 1fr auto;
       gap:8px; align-items:center;
     }
-     body.modal-open{ overflow: hidden; }
+    body.modal-open{ overflow: hidden; }
     .rows input{ padding:8px; }
     .chip{ display:inline-flex; align-items:center; gap:6px; background:#f3f4f6; border:1px solid var(--border); padding:6px 10px; border-radius:999px; font-size:12px; }
   </style>
@@ -118,7 +118,7 @@
             <label>Kargo (TL) <span class="muted">(manuel; boşsa barem/desi)</span></label>
             <div class="inline">
               <input type="text" id="s_shipping_cost" placeholder="Boş bırak → barem">
-              <input type="text" id="s_desi" placeholder="Desi" title="300 TL ve üzeri fiyatlarda desi gerekir">
+              <input type="text" id="s_desi" placeholder="Desi" title="350 TL ve üzeri fiyatlarda desi gerekir">
               <button class="btn link" id="openBarem">⚙️</button>
             </div>
           </div>
@@ -220,15 +220,20 @@
         </div>
       </div>
       <div class="content">
-        <p class="muted">Kural: <span class="chip">0 – 149.99 TL → <b id="lblU150"></b></span> <span class="chip">150 – 299.99 TL → <b id="lblU300"></b></span> <span class="chip">≥ 300 TL → <b>DESİ TABLOSU</b></span></p>
+        <p class="muted">
+          Kural:
+          <span class="chip">0 – 199.99 TL → <b id="lblU200"></b></span>
+          <span class="chip">200 – 349.99 TL → <b id="lblU350"></b></span>
+          <span class="chip">≥ 350 TL → <b>DESİ TABLOSU</b></span>
+        </p>
         <div class="grid-2">
           <div>
-            <label>0 – 149.99 TL kargo (TL)</label>
-            <input type="text" id="u150" placeholder="örn. 44,5" />
+            <label>0 – 199.99 TL kargo (TL)</label>
+            <input type="text" id="u200" placeholder="örn. 44,5" />
           </div>
           <div>
-            <label>150 – 299.99 TL kargo (TL)</label>
-            <input type="text" id="u300" placeholder="örn. 74,5" />
+            <label>200 – 349.99 TL kargo (TL)</label>
+            <input type="text" id="u350" placeholder="örn. 74,5" />
           </div>
         </div>
         <hr style="margin:14px 0;border:0;border-top:1px solid var(--border)"/>
@@ -300,15 +305,15 @@
     }
 
     // ---------- Barem config (localStorage) ----------
-    const BAREM_STORAGE_KEY = "kargo_barem_cfg_v1";
-    const defaultBarem = { under150: 44.5, under300: 74.5, desiTable: [] };
+    const BAREM_STORAGE_KEY = "kargo_barem_cfg_v2";
+    const defaultBarem = { under200: 44.5, under350: 74.5, desiTable: [] };
     function loadBarem(){ try{ const raw=localStorage.getItem(BAREM_STORAGE_KEY); return raw? JSON.parse(raw): structuredClone(defaultBarem);}catch(e){ return structuredClone(defaultBarem);} }
     function saveBarem(cfg){ localStorage.setItem(BAREM_STORAGE_KEY, JSON.stringify(cfg)); }
 
     function shippingByBarem(price, desi){
       const cfg = loadBarem();
-      if (price < 150) return toNumber(cfg.under150);
-      if (price < 300) return toNumber(cfg.under300);
+      if (price < 200) return toNumber(cfg.under200);
+      if (price < 350) return toNumber(cfg.under350);
       const d = toNumber(desi);
       const row = (cfg.desiTable || []).find(r => d >= toNumber(r.min) && d <= toNumber(r.max));
       return row ? toNumber(row.price) : 0;
@@ -376,7 +381,7 @@
           commission_rate_percent, tax_rate_percent_raw,
           profit_margin_percent, ciro_profit_percent
         });
-        const tier = out.finalPrice < 150 ? 1 : (out.finalPrice < 300 ? 2 : 3);
+        const tier = out.finalPrice < 200 ? 1 : (out.finalPrice < 350 ? 2 : 3);
         const newShipping = shippingByBarem(out.finalPrice, desi);
         if (Math.abs(newShipping - shipping) < 0.001 && tier===lastTier) return { ...out, shippingCost: newShipping };
         lastTier = tier; shipping = newShipping; guessPrice = out.finalPrice;
@@ -494,8 +499,7 @@
         // Manuel fiyat alanı doluysa onun paneli zaten dinamik; yine de güncelle
         updateSingleManual();
       }catch(err){
-        // Dinamikte sürekli alert istemiyoruz; sessiz geç (istersen status alanı ekleriz)
-        // Ama manuel hesapla butonuna basınca alert yine çalışacak.
+        // Dinamikte sürekli alert istemiyoruz; sessiz geç
       }
     }
 
@@ -836,7 +840,7 @@
           });
 
           const cfg=loadBarem();
-          setStatus(`Hesaplama tamamlandı: ${exportData.length} satır. Barem: <b>0-149.99</b> → ${fmtTL(cfg.under150)} TL, <b>150-299.99</b> → ${fmtTL(cfg.under300)} TL, ≥300 TL → DESİ tablosu.`);
+          setStatus(`Hesaplama tamamlandı: ${exportData.length} satır. Barem: <b>0-199.99</b> → ${fmtTL(cfg.under200)} TL, <b>200-349.99</b> → ${fmtTL(cfg.under350)} TL, ≥350 TL → DESİ tablosu.`);
         }catch(err){
           setStatus(`<span style="color:var(--danger)">Hata: ${err.message || String(err)}</span>`);
         }
@@ -860,10 +864,10 @@
     const closeBtn=document.getElementById('closeBarem');
     const saveBtn=document.getElementById('saveBarem');
     const resetBtn=document.getElementById('resetBarem');
-    const u150=document.getElementById('u150');
-    const u300=document.getElementById('u300');
-    const lblU150=document.getElementById('lblU150');
-    const lblU300=document.getElementById('lblU300');
+    const u200=document.getElementById('u200');
+    const u350=document.getElementById('u350');
+    const lblU200=document.getElementById('lblU200');
+    const lblU350=document.getElementById('lblU350');
     const rowsEl=document.getElementById('desiRows');
     const addRowBtn=document.getElementById('addRow');
     const bulkBtn=document.getElementById('bulkUpload');
@@ -882,10 +886,10 @@
     }
     function renderBarem(){
       const cfg=loadBarem();
-      u150.value = String(cfg.under150).replace('.', ',');
-      u300.value = String(cfg.under300).replace('.', ',');
-      lblU150.textContent = fmtTL(cfg.under150) + ' TL';
-      lblU300.textContent = fmtTL(cfg.under300) + ' TL';
+      u200.value = String(cfg.under200).replace('.', ',');
+      u350.value = String(cfg.under350).replace('.', ',');
+      lblU200.textContent = fmtTL(cfg.under200) + ' TL';
+      lblU350.textContent = fmtTL(cfg.under350) + ' TL';
       rowsEl.innerHTML='';
       (cfg.desiTable||[]).forEach((r,idx)=> rowsEl.appendChild(makeRow(idx, r)) );
     }
@@ -907,7 +911,7 @@
     resetBtn.addEventListener('click', ()=>{ saveBarem(defaultBarem); renderBarem(); alert('Varsayılanlara döndü.'); });
 
     saveBtn.addEventListener('click', ()=>{
-      const cfg={ under150: toNumber(u150.value), under300: toNumber(u300.value), desiTable: [] };
+      const cfg={ under200: toNumber(u200.value), under350: toNumber(u350.value), desiTable: [] };
       rowsEl.querySelectorAll(':scope > div').forEach(div=>{
         const min=toNumber(div.querySelector('.min').value);
         const max=toNumber(div.querySelector('.max').value);
